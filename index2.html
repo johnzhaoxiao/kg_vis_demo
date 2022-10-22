@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>kg_vis</title>
+    <script src="https://gw.alipayobjects.com/os/lib/antv/g6/4.3.2/dist/g6.min.js"></script>
+    <script src="https://apps.bdimg.com/libs/jquery/2.1.4/jquery.min.js"></script>
+    <script type="text/javascript" src="./static/new_data.js"></script>
+    <script type="text/javascript" src="./static/nodeColor.js"></script>
+
+    <style>
+                html {
+                height: 100%;
+            }
+            body {
+                background-image: url("./static/bg.jpeg");
+                width: 100%;
+                height: 100%;
+            }
+            *{
+                padding: 0;
+                margin: 0;
+            }
+
+            #g6 {
+                width: 100%;
+                height: 90%;
+                margin: 0px auto;
+            }
+            #message {
+                width: 100%;
+                height: 10%;
+                overflow: auto;
+                color: #fbffff;
+            }
+
+    </style>
+
+</head>
+
+<body>
+    <div id="g6"></div>
+    <div id="message"></div>
+
+    <script>
+         window.onresize = function(){
+        _autoZoom();
+        };
+        _autoZoom();
+        function _autoZoom(){
+            let svg = document.getElementById("g6");
+            if (svg) {
+                svg.setAttribute("preserveAspectRatio", "xMinYMin meet");
+                svg.setAttribute("viewBox", "0 0 2000 1000");  // 1452 860
+                svg.style.overflow = "hidden"; // hidden
+                var viewBoxVal = svg.getAttribute("viewBox");
+                if (viewBoxVal) {
+                    var viewBoxWidth = viewBoxVal.split(" ")[2];
+                    var viewBoxHeight = viewBoxVal.split(" ")[3];
+                    svg.removeAttribute("width");
+                    svg.removeAttribute("height");
+                    var setWidth = document.body.clientWidth;
+                    var setHeight = setWidth * viewBoxHeight / viewBoxWidth;
+                    svg.setAttribute("width", setWidth);
+                    svg.setAttribute("height", setHeight);
+
+                }
+            }
+        }
+
+
+        //allCaseMessage = {{ back_data|tojson }};
+        //var data = eval(allCaseMessage) // 获取默认的图谱数据
+        data = init_data;  //图谱数据
+        data.edges = data.links;
+        //data 代表读取到的json中的数据
+        let fixSelectedItems = {
+          fixAll: true,
+          fixState: 'yourStateName', // 'selected' by default
+        };
+        let f_box = document.querySelector('#g6');
+        let cw = f_box.offsetWidth;
+        let ch = f_box.offsetHeight;
+
+        const graph = new G6.Graph({
+            container: 'g6', // String | HTMLElement，必须，在 Step 1 中创建的容器 id 或容器本身
+            width: cw, //1280 , // Number，必须，图的宽度 1280
+            height:ch,  //800, // Number，必须，图的高度 800
+            //
+            modes: {
+                 default: [
+                  'drag-canvas',
+                  'drag-node',
+                  {
+                    type: 'zoom-canvas',
+                    fixSelectedItems,
+                  },
+                ],},
+            // 布局
+            layout: {
+                type: 'force',
+                preventOverlap: true,
+                nodeSize: 100,
+                linkDistance:180
+            },
+            fitCenter: true,
+            defaultNode: {
+                // 标签显示
+                label: 'node-label',
+
+                // 节点大小
+                size: 60,
+                labelCfg:{
+                    style: {    // 节点属性
+
+                        fill:'#fbffff',
+                        fontSize:10,
+                        cursor: 'pointer',
+
+                    }
+                }
+
+            },
+            defaultEdge: {
+                style: {
+                    stroke: '#8e8e8e',
+                    lineWidth: 1,
+                    endArrow: true,
+
+                },
+                labelCfg: {
+                    //refY: 10,
+                    autoRotate: true,
+                    style: {
+                        fontSize:9,
+                        stroke: 'white',
+                        lineWidth: 1.5,
+
+                    }
+                }
+            }
+        });
+        // 针对每个节点做特殊处理
+        graph.node((node) => {
+            return {
+                id: node.id,
+                description:node,
+                label: node.label,
+                name: node.name,
+
+                style: {
+                    fill: nodeColor[node.label],
+                    fontSize: 10,
+                    cursor: 'pointer',
+
+                }
+            }
+        });
+        // 针对每条边做特殊处理
+        graph.edge((edge) => {
+            return {
+                label: edge.type,
+                fontSize: 10
+            }
+        });
+
+    graph.data(data);
+    graph.render();  //数据初始化之后执行画图
+
+    graph.on('node:dragstart', function (e) {
+      graph.layout();
+      refreshDragedNodePosition(e);
+    });
+
+    graph.on('node:drag', function (e) {
+      const forceLayout = graph.get('layoutController').layoutMethods[0];
+      forceLayout.execute();
+      refreshDragedNodePosition(e);
+    });
+
+    graph.on('node:dragend', function (e) {
+      e.item.get('model').fx = null;
+      e.item.get('model').fy = null;
+    });
+
+    if (typeof window !== 'undefined')
+      window.onresize = () => {
+        if (!graph || graph.get('destroyed')) return;
+        if (!container || !container.scrollWidth || !container.scrollHeight) return;
+        graph.changeSize(container.scrollWidth, container.scrollHeight);
+      };
+
+    graph.on('node:click', (ev)=>{
+        const node = ev.item;
+        let nodeInfo = node._cfg.model.description;
+        console.log(nodeInfo);
+        let html_ = "";
+            for (var key in nodeInfo){
+                if (key=="properties"){
+                    
+                    html_+="<li><b>"+key+"</b>: "+JSON.stringify(nodeInfo[key])+"</li>"
+                }else{
+                    html_+="<li><b>"+key+"</b>: "+nodeInfo[key]+"</li>"
+                }
+            }
+
+            document.getElementById("message").innerHTML=html_
+
+    });
+
+
+    function refreshDragedNodePosition(e) {
+      const model = e.item.get('model');
+      model.fx = e.x;
+      model.fy = e.y;
+    };
+    //     selector.addEventListener('change', (e) => {
+    //   const value = e.target.value;
+    //   Object.keys(fixSelectedItems).forEach((key) => {
+    //     if (key !== 'fixState') fixSelectedItems[key] = false;
+    //   });
+    //   fixSelectedItems[value] = true;
+    // });
+
+    // if (typeof window !== 'undefined')
+    //   window.onresize = () => {
+    //     if (!graph || graph.get('destroyed')) return;
+    //     if (!container || !container.scrollWidth || !container.scrollHeight) return;
+    //     graph.changeSize(container.scrollWidth, container.scrollHeight - 30);
+    //   };
+
+
+
+    </script>
+</body>
+</html>
